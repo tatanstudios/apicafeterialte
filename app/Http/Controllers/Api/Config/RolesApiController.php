@@ -391,7 +391,7 @@ class RolesApiController extends Controller
     }
 
     public function tablaUsuarios(){
-        $usuarios = Administrador::orderBy('id', 'ASC')
+        $usuarios = Administrador::with('caja:id,nombre')->orderBy('id', 'ASC')
             ->get()
             ->map(function ($u) {
                 return [
@@ -400,6 +400,7 @@ class RolesApiController extends Controller
                     'correo' => $u->email,
                     'estado' => $u->estado,
                     'rol' => $u->getRoleNames()->first() ?? 'Sin rol',
+                    'caja' => $u->caja?->nombre,
                     'ultimo_acceso' => $u->ultimo_acceso?->format('Y-m-d H:i'),
                     'pin_actualizado_at' => $u->pin_actualizado_at?->format('Y-m-d H:i'),
                 ];
@@ -415,6 +416,7 @@ class RolesApiController extends Controller
             'email' => 'required|email|unique:administradores,email',
             'password' => 'required|string|min:8',
             'rol' => 'required|string|exists:roles,name',
+            'caja_id' => 'nullable|integer|exists:cajas,id',
         ], [
             // Mensajes personalizados
             'nombre.required' => 'El nombre es obligatorio',
@@ -442,6 +444,7 @@ class RolesApiController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'estado' => true,
+                'caja_id' => $request->caja_id ?: null,
             ]);
 
             // Spatie
@@ -453,6 +456,7 @@ class RolesApiController extends Controller
                 'nombre' => $usuario->nombre,
                 'email'  => $usuario->email,
                 'rol'    => $request->rol,
+                'caja_id' => $usuario->caja_id,
             ]);
 
             return response()->json([
@@ -497,8 +501,10 @@ class RolesApiController extends Controller
                 'nombre' => $usuario->nombre,
                 'email' => $usuario->email,
                 'estado' => $usuario->estado,
+                'caja_id' => $usuario->caja_id,
             ],
             'roles' => $roles,
+            'cajas' => \App\Models\Caja::orderBy('nombre')->get(['id', 'nombre', 'activo']),
             'rol_actual' => $rolActual,
         ]);
     }
@@ -522,6 +528,7 @@ class RolesApiController extends Controller
             'password' => 'nullable|string|min:8',
             'rol' => 'required|integer|exists:roles,id',
             'estado' => 'required|boolean',
+            'caja_id' => 'nullable|integer|exists:cajas,id',
         ], [
         ]);
 
@@ -548,6 +555,7 @@ class RolesApiController extends Controller
             'email'  => $usuario->email,
             'estado' => $usuario->estado,
             'rol'    => $usuario->getRoleNames()->first(),
+            'caja_id' => $usuario->caja_id,
         ];
 
         DB::beginTransaction();
@@ -557,6 +565,7 @@ class RolesApiController extends Controller
             $usuario->nombre = $request->nombre;
             $usuario->email = $request->email;
             $usuario->estado = filter_var($request->estado, FILTER_VALIDATE_BOOLEAN);
+            $usuario->caja_id = $request->caja_id ?: null;
 
             if ($request->filled('password')) {
                 $usuario->password = bcrypt($request->password);
@@ -589,6 +598,7 @@ class RolesApiController extends Controller
                 'email'           => $usuario->email,
                 'estado'          => $usuario->estado,
                 'rol'             => $role->name,
+                'caja_id'         => $usuario->caja_id,
                 'cambio_password' => $request->filled('password'),
             ]);
 

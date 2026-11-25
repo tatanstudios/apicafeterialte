@@ -223,6 +223,9 @@ class TurnoApiController extends Controller
             return $this->errorValidacion($validator);
         }
 
+        // Sin «caja.elegir_caja» solo se abre en la caja asignada al usuario
+        CajaService::exigirCajaPermitida((int) $request->caja_id, $request->user());
+
         // Lo que quedó en la gaveta al cerrar el turno anterior pasa al nuevo turno
         $queQuedo = CajaService::efectivoQueQuedo((int) $request->caja_id);
 

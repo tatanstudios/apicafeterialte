@@ -51,6 +51,34 @@ class CajaService
         return method_exists($usuario, 'can') && $usuario->can('caja.turno_compartido');
     }
 
+    /** Si el usuario elige en qué caja abrir (el admin siempre, por Gate::before). */
+    public static function eligeCaja($usuario): bool
+    {
+        return !$usuario || (method_exists($usuario, 'can') && $usuario->can('caja.elegir_caja'));
+    }
+
+    /**
+     * Los meseros trabajan solo en la caja que les asignó el administrador.
+     * Falla si no tiene caja, si la caja está desactivada o si pide otra.
+     */
+    public static function exigirCajaPermitida(int $cajaId, $usuario): void
+    {
+        if (self::eligeCaja($usuario)) {
+            return;
+        }
+
+        $asignada = $usuario->caja_id ? Caja::find($usuario->caja_id) : null;
+        if (!$asignada) {
+            throw new NegocioException('No tienes una caja asignada. Pide al administrador que te asigne una en Usuarios.');
+        }
+        if (!$asignada->activo) {
+            throw new NegocioException("Tu caja asignada ({$asignada->nombre}) está desactivada. Avisa al administrador.");
+        }
+        if ((int) $asignada->id !== $cajaId) {
+            throw new NegocioException("Solo puedes abrir turno en tu caja asignada: {$asignada->nombre}.");
+        }
+    }
+
     /**
      * Efectivo que quedó en la gaveta al cerrar el último turno de la caja (lo contado).
      * El dinero no se retira al cerrar: es el fondo con el que abre el siguiente turno.

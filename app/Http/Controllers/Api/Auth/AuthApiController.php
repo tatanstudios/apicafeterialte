@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Administrador;
 use App\Services\AuditoriaService;
 use App\Services\AutorizacionService;
+use App\Services\CajaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -24,6 +25,10 @@ class AuthApiController extends Controller
             'email' => $user->email,
             'roles' => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name'),
+            // Caja fija: sin «caja.elegir_caja» el usuario trabaja solo en ella (los clientes la usan en vez de la del dispositivo)
+            'elige_caja' => CajaService::eligeCaja($user),
+            'caja_id' => $user->caja_id,
+            'caja_nombre' => $user->caja?->nombre,
             'tiene_pin' => !empty($user->pin),
             'pin_actualizado_at' => $user->pin_actualizado_at?->format('Y-m-d H:i'),
         ]);

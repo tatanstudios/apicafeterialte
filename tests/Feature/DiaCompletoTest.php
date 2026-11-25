@@ -146,7 +146,7 @@ class DiaCompletoTest extends TestCase
         $cafeConLeche = fn (float $c = 1) => $this->item('cafe', $c, ['modificadores' => [$conLeche]]);
 
         // ── 1. Ana abre su turno ──
-        $ana = $this->crearUsuario('mesero', ['nombre' => 'Ana']);
+        $ana = $this->crearUsuario('mesero', ['nombre' => 'Ana', 'caja_id' => $this->caja->id]); // caja asignada por el admin
         Sanctum::actingAs($ana, ['*'], 'sanctum');
         $turnoId = $this->postJson('/api/caja/turnos/abrir', ['caja_id' => $this->caja->id, 'fondo_inicial' => 20])
             ->assertSuccessful()->json('turno.id');

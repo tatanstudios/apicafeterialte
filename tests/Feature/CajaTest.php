@@ -76,7 +76,7 @@ class CajaTest extends TestCase
 
     public function test_cada_empleado_entra_con_su_usuario_y_el_turno_queda_a_su_nombre(): void
     {
-        $ana = $this->actuarComo('mesero', ['nombre' => 'Ana']);
+        $ana = $this->actuarComo('mesero', ['nombre' => 'Ana', 'caja_id' => $this->caja->id]);
 
         // El turno es de quien inició sesión
         $this->abrir(50)->assertCreated()->assertJsonPath('turno.usuario_apertura', 'Ana');
@@ -85,7 +85,7 @@ class CajaTest extends TestCase
             ->assertOk()->assertJsonPath('turno.usuario_cierre', 'Ana');
 
         // Ana cierra sesión y entra Luis con su usuario para abrir el siguiente turno
-        $luis = $this->actuarComo('mesero', ['nombre' => 'Luis']);
+        $luis = $this->actuarComo('mesero', ['nombre' => 'Luis', 'caja_id' => $this->caja->id]);
         $this->abrir(50)->assertCreated()->assertJsonPath('turno.usuario_apertura', 'Luis');
         $this->cerrarTurno($this->turno()->id, ['efectivo_contado' => 50])->assertOk()->assertJsonPath('turno.usuario_cierre', 'Luis');
 
@@ -93,6 +93,51 @@ class CajaTest extends TestCase
         $this->getJson('/api/caja/turnos')->assertOk()->assertJsonPath('total', 2);
         $this->getJson("/api/caja/turnos?usuario_id={$luis->id}")->assertJsonPath('total', 1);
         $this->getJson('/api/caja/responsables')->assertNotFound();
+    }
+
+    // Los meseros trabajan en la caja que les asignó el administrador; el admin elige
+    public function test_mesero_sin_caja_asignada_no_puede_abrir_turno(): void
+    {
+        $this->actuarComo('mesero');
+
+        $this->abrir()->assertStatus(422)
+            ->assertJsonPath('message', 'No tienes una caja asignada. Pide al administrador que te asigne una en Usuarios.');
+        $this->assertSame(0, TurnoCaja::count());
+        $this->getJson('/api/me')->assertJsonPath('elige_caja', false)->assertJsonPath('caja_id', null);
+    }
+
+    public function test_mesero_solo_abre_en_su_caja_asignada(): void
+    {
+        $otra = Caja::create(['nombre' => 'Caja 2', 'activo' => true]);
+        $this->actuarComo('mesero', ['caja_id' => $otra->id]);
+
+        $this->abrir()->assertStatus(422)->assertJsonPath('message', 'Solo puedes abrir turno en tu caja asignada: Caja 2.');
+        $this->getJson('/api/me')->assertJsonPath('caja_id', $otra->id)->assertJsonPath('caja_nombre', 'Caja 2');
+
+        $this->postJson('/api/caja/turnos/abrir', ['caja_id' => $otra->id, 'fondo_inicial' => 0])->assertCreated();
+
+        $otra->update(['activo' => false]);
+        $this->actuarComo('mesero', ['caja_id' => $otra->id]);
+        $this->postJson('/api/caja/turnos/abrir', ['caja_id' => $otra->id])->assertStatus(422);
+    }
+
+    public function test_admin_elige_cualquier_caja_y_asigna_la_caja_del_usuario(): void
+    {
+        $this->actuarComo('admin');
+        $this->getJson('/api/me')->assertJsonPath('elige_caja', true);
+        $this->abrir()->assertCreated();
+
+        $this->postJson('/api/admin/permisos/nuevo-usuario', [
+            'nombre' => 'Rosa', 'email' => 'rosa@test.com', 'password' => 'secreto123', 'rol' => 'mesero', 'caja_id' => $this->caja->id,
+        ])->assertCreated();
+        $rosa = \App\Models\Administrador::where('email', 'rosa@test.com')->first();
+        $this->assertSame($this->caja->id, $rosa->caja_id);
+
+        $this->putJson("/api/admin/actualizar/administrador/{$rosa->id}", [
+            'nombre' => 'Rosa', 'email' => 'rosa@test.com', 'rol' => \Spatie\Permission\Models\Role::findByName('mesero', 'api')->id,
+            'estado' => true, 'caja_id' => null,
+        ])->assertOk();
+        $this->assertNull($rosa->fresh()->caja_id);
     }
 
     public function test_no_se_abren_dos_turnos_en_la_misma_caja(): void

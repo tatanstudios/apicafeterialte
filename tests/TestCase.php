@@ -31,7 +31,7 @@ abstract class TestCase extends BaseTestCase
         'cajero' => [
             'dashboard.ver',
             'pos.vender', 'pos.descuento', 'pos.historial', 'pos.precuentas',
-            'caja.abrir', 'caja.cerrar', 'caja.movimientos', 'caja.arqueo',
+            'caja.abrir', 'caja.cerrar', 'caja.movimientos', 'caja.arqueo', 'caja.elegir_caja',
             'productos.ver', 'inventario.ver',
             'clientes.ver', 'clientes.gestionar', 'cuentas_cobrar.gestionar', 'pedidos.gestionar',
             'gastos.registrar',

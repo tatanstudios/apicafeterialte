@@ -23,6 +23,7 @@ class Administrador extends Authenticatable
         'email',
         'password',
         'estado',
+        'caja_id',
         'ultimo_acceso',
         'pin',
         'pin_actualizado_at',
@@ -42,6 +43,12 @@ class Administrador extends Authenticatable
         'pin' => 'hashed',
         'pin_actualizado_at' => 'datetime',
     ];
+
+    // Caja fija del usuario (ver CajaService::cajaDeUsuario)
+    public function caja()
+    {
+        return $this->belongsTo(Caja::class);
+    }
 
     public function sendPasswordResetNotification($token)
     {

@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Schema;
  */
 class LimpiarMovimientos extends Command
 {
-    protected $signature = 'pos:limpiar-movimientos {--force : No pedir confirmación}';
+    protected $signature = 'pos:limpiar-movimientos {--force : No pedir confirmación} {--conservar-sesiones : No cerrar las sesiones (botón temporal de pruebas)}';
 
     protected $description = 'Borra los movimientos de prueba y conserva el catálogo y la configuración';
 
@@ -40,6 +40,9 @@ class LimpiarMovimientos extends Command
         'personal_access_tokens', 'password_reset_tokens', 'jobs', 'failed_jobs',
     ];
 
+    /** Sesiones: el botón «Borrar ventas» (solo local) las conserva para no sacar a quien lo usa. */
+    public const TABLAS_SESION = ['personal_access_tokens', 'password_reset_tokens'];
+
     public function handle(): int
     {
         $this->warn('Se borrarán ventas, turnos, mesas, compras, gastos, producción, mermas, kárdex, notificaciones y auditoría.');
@@ -58,7 +61,8 @@ class LimpiarMovimientos extends Command
 
         Schema::disableForeignKeyConstraints();
         try {
-            foreach (self::TABLAS as $tabla) {
+            $tablas = $this->option('conservar-sesiones') ? array_diff(self::TABLAS, self::TABLAS_SESION) : self::TABLAS;
+            foreach ($tablas as $tabla) {
                 if (Schema::hasTable($tabla)) {
                     DB::table($tabla)->truncate();
                 }

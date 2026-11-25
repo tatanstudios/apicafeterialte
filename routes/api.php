@@ -123,6 +123,9 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function () {
         Route::get('/admin/unidadmedida/tabla', [ConfiguracionApiController::class,'tablaUnidadMedida']);
     });
 
+    // TEMPORAL (pruebas): «Borrar ventas». Solo con APP_ENV=local y admin; quitar antes de producción
+    Route::post('/admin/temporal/borrar-ventas', \App\Http\Controllers\Api\Config\BorrarVentasTemporalController::class);
+
     Route::middleware('permission:catalogos.gestionar')->group(function () {
         Route::post('/admin/categorias/nuevo', [ConfiguracionApiController::class, 'registrarCategoria']);
         Route::put('/admin/categorias/actualizar/{id}', [ConfiguracionApiController::class, 'actualizarCategoria']);

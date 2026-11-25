@@ -39,6 +39,7 @@ return [
         'caja.historial'            => 'Ver historial de cierres',
         'caja.reabrir'              => 'Reabrir turnos cerrados',
         'caja.turno_compartido'     => 'Vender y cobrar en el turno que abrió otra persona',
+        'caja.elegir_caja'          => 'Abrir turno en cualquier caja (sin él, solo en la caja asignada al usuario)',
 
         // Productos e inventario
         'productos.ver'             => 'Ver catálogo de productos',
@@ -164,6 +165,7 @@ return [
         'caja.arqueo' => 'Hace arqueos parciales: contar el efectivo a media jornada para ver si cuadra, sin cerrar el turno. También imprime el Corte X.',
         'caja.historial' => 'Ve el historial de turnos cerrados de todos los empleados, con su detalle y diferencias, y los reimprime. Si en Datos del negocio está activo el «cierre ciego», solo quien tiene este permiso ve el efectivo esperado antes de contar; los demás cuentan sin saber cuánto debería haber.',
         'caja.turno_compartido' => 'Para varios meseros con su propia tablet y una sola caja: si otra persona ya abrió el turno, puede vender, cobrar mesas, recibir abonos y registrar gastos o movimientos en ese turno sin abrir el suyo. Todo el dinero cae al turno de quien lo abrió (y en su cierre y arqueo), pero cada venta guarda quién la cobró, y el cierre muestra las ventas por empleado. Sin el permiso, si el turno es de otro solo puede cerrarlo para abrir el propio.',
+        'caja.elegir_caja' => 'Elige en qué caja abrir el turno, como el administrador. Sin este permiso el usuario trabaja siempre en la caja que le asignó el administrador en Usuarios; si no tiene caja asignada no puede abrir turno.',
         'caja.reabrir' => 'Reabre un turno ya cerrado (por ejemplo, si se contó mal) con un motivo obligatorio que queda en Auditoría. No se puede si la caja ya tiene otro turno abierto.',
 
         'productos.ver' => 'Ve el catálogo de productos con su clase, precio, costo y existencia, y lo busca por nombre o código de barras. Solo consulta: no puede crear ni editar.',
