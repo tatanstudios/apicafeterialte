@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Produccion;
 
+use App\Support\HistorialPropio;
 use App\Http\Controllers\Controller;
 use App\Models\Merma;
 use App\Models\Produccion;
@@ -241,7 +242,7 @@ class ProduccionApiController extends Controller
         $hasta = $request->filled('hasta') ? $request->hasta : today()->toDateString();
         $desde = $request->filled('desde') ? $request->desde : $hasta;
 
-        $producciones = Produccion::whereBetween('fecha', [$desde, $hasta])
+        $producciones = HistorialPropio::aplicar(Produccion::query())->whereBetween('fecha', [$desde, $hasta])
             ->when($request->filled('producto_id'), fn ($q) => $q->where('producto_id', $request->producto_id))
             ->when($request->filled('estado'), fn ($q) => $q->where('estado', $request->estado))
             ->orderByDesc('fecha')->orderByDesc('id')->limit(300)->get();

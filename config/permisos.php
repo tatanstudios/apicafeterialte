@@ -84,6 +84,9 @@ return [
         'reportes.ver'              => 'Ver reportes',
         'reportes.exportar'         => 'Exportar reportes a Excel y PDF',
 
+        // Historiales
+        'historial.ver_todo'        => 'Ver en los historiales lo que registraron todos los usuarios',
+
         // Administración
         'usuarios.gestionar'        => 'Gestionar usuarios',
         'roles.gestionar'           => 'Gestionar roles y permisos',
@@ -114,6 +117,7 @@ return [
         'pedidos'        => 'Pedidos especiales',
         'gastos'         => 'Gastos',
         'impresoras'     => 'Impresoras',
+        'historial'      => 'Historiales',
         'reportes'       => 'Reportes',
         'usuarios'       => 'Usuarios',
         'roles'          => 'Roles y permisos',
@@ -203,6 +207,7 @@ return [
         'impresoras.gestionar' => 'Configura las impresoras térmicas: conexión (desde la tablet, red o USB), tipo (ESC/POS o Star), papel, qué imprime, cajón, y las pruebas de impresión. Ve las impresiones con error para reintentarlas o borrarlas.',
 
         'reportes.ver' => 'Entra a Reportes: ventas por día, hora, empleado y forma de pago, productos más vendidos, utilidad estimada, cierres de caja, compras, gastos, inventario valorizado, kárdex, producción, mermas y cuentas por cobrar y por pagar. Con este permiso el panel de inicio muestra también la utilidad y el resumen del mes.',
+        'historial.ver_todo' => 'En los historiales por fecha (ventas, compras, gastos y producción) ve lo que registraron todos los usuarios. Sin este permiso cada quien ve solo lo que registró él mismo; los totales también son solo de lo suyo.',
         'reportes.exportar' => 'Descarga los reportes en Excel y PDF. Cada descarga queda en Auditoría.',
 
         'usuarios.gestionar' => 'Crea, edita y desactiva usuarios, les asigna su rol y les quita el PIN. Un usuario desactivado ya no puede entrar y se cierran sus sesiones abiertas.',

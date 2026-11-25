@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Gastos;
 
+use App\Support\HistorialPropio;
 use App\Http\Controllers\Controller;
 use App\Models\CategoriaGasto;
 use App\Models\Gasto;
@@ -117,7 +118,7 @@ class GastoApiController extends Controller
         $hasta = $request->filled('hasta') ? $request->hasta : today()->toDateString();
         $desde = $request->filled('desde') ? $request->desde : today()->startOfMonth()->toDateString();
 
-        $consulta = Gasto::whereBetween('fecha', [$desde, $hasta])
+        $consulta = HistorialPropio::aplicar(Gasto::query())->whereBetween('fecha', [$desde, $hasta])
             ->when($request->filled('categoria_id'), fn ($q) => $q->where('categoria_id', $request->categoria_id))
             ->when($request->filled('origen'), fn ($q) => $q->where('origen', $request->origen))
             ->when($request->input('estado') === 'anulados', fn ($q) => $q->where('anulado', true))

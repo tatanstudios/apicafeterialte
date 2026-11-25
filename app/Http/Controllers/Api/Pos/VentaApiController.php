@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Pos;
 
+use App\Support\HistorialPropio;
 use App\Http\Controllers\Controller;
 use App\Models\Devolucion;
 use App\Models\Venta;
@@ -170,7 +171,8 @@ class VentaApiController extends Controller
             return $this->errorValidacion($validator);
         }
 
-        $consulta = Venta::query();
+        // El mesero ve solo lo que vendió él (con «historial.ver_todo», todo)
+        $consulta = HistorialPropio::aplicar(Venta::query());
 
         // Por turno no se filtra por fecha (un turno puede pasar de medianoche);
         // el historial de un cliente sin fechas muestra todas sus compras

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Compras;
 
+use App\Support\HistorialPropio;
 use App\Http\Controllers\Controller;
 use App\Models\Compra;
 use App\Models\CompraDetalle;
@@ -137,7 +138,7 @@ class CompraApiController extends Controller
             return $this->errorValidacion($validator);
         }
 
-        $consulta = Compra::query()
+        $consulta = HistorialPropio::aplicar(Compra::query())
             ->when($request->filled('desde'), fn ($q) => $q->whereDate('fecha', '>=', $request->desde))
             ->when($request->filled('hasta'), fn ($q) => $q->whereDate('fecha', '<=', $request->hasta))
             ->when($request->filled('proveedor_id'), fn ($q) => $q->where('proveedor_id', $request->proveedor_id))
