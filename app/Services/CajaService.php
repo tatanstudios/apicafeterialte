@@ -493,6 +493,61 @@ class CajaService
             ->all();
     }
 
+    /**
+     * Detalle del turno para el ticket de cierre: cuántas ventas hubo, qué productos
+     * se vendieron (sin consumo interno ni lo devuelto) y cada entrada o salida de
+     * dinero que no es venta (gastos, egresos, pagos a proveedor, ingresos, abonos...).
+     */
+    public static function detalleTurno(TurnoCaja $turno): array
+    {
+        $ventas = Venta::where('turno_id', $turno->id)->where('estado', '!=', 'anulada');
+
+        $productos = DB::table('ventas_detalle')
+            ->join('ventas', 'ventas.id', '=', 'ventas_detalle.venta_id')
+            ->leftJoin('productos', 'productos.id', '=', 'ventas_detalle.producto_id')
+            ->where('ventas.turno_id', $turno->id)
+            ->where('ventas.estado', '!=', 'anulada')
+            ->where('ventas_detalle.consumo_interno', false)
+            ->groupBy('ventas_detalle.producto_id', DB::raw('COALESCE(productos.nombre, ventas_detalle.nombre_producto)'))
+            ->orderByDesc(DB::raw('SUM(ventas_detalle.cantidad - ventas_detalle.cantidad_devuelta)'))
+            ->get([
+                DB::raw('COALESCE(productos.nombre, ventas_detalle.nombre_producto) as producto'),
+                DB::raw('SUM(ventas_detalle.cantidad - ventas_detalle.cantidad_devuelta) as cantidad'),
+                // Lo devuelto descuenta su parte del subtotal
+                DB::raw('SUM(CASE WHEN ventas_detalle.cantidad > 0 THEN ventas_detalle.subtotal * (ventas_detalle.cantidad - ventas_detalle.cantidad_devuelta) / ventas_detalle.cantidad ELSE 0 END) as total'),
+            ])
+            ->filter(fn ($p) => (float) $p->cantidad > 0)
+            ->map(fn ($p) => [
+                'producto' => $p->producto,
+                'cantidad' => round((float) $p->cantidad, 4),
+                'total'    => round((float) $p->total, 2),
+            ])
+            ->values()
+            ->all();
+
+        $movimientos = MovimientoCaja::with('metodoPago:id,nombre,afecta_efectivo')
+            ->where('turno_id', $turno->id)
+            ->where('anulado', false)
+            ->where('tipo', '!=', 'venta')
+            ->orderBy('created_at')->orderBy('id')
+            ->get()
+            ->map(fn (MovimientoCaja $m) => [
+                'tipo'     => $m->tipo,
+                // «Gasto G-0003: Verdulería · tomates» → «Verdulería · tomates»
+                'concepto' => preg_replace('/^Gasto \S+: /u', '', (string) $m->concepto),
+                'monto'    => round((float) $m->monto, 2),
+                'metodo'   => $m->metodoPago?->afecta_efectivo ? null : $m->metodoPago?->nombre,
+                'hora'     => $m->created_at?->format('H:i'),
+            ]);
+
+        return [
+            'ventas_cantidad' => $ventas->count(),
+            'productos'       => $productos,
+            'salidas'         => $movimientos->whereIn('tipo', MovimientoCaja::TIPOS_SALIDA)->values()->all(),
+            'entradas'        => $movimientos->whereIn('tipo', MovimientoCaja::TIPOS_ENTRADA)->values()->all(),
+        ];
+    }
+
     private static function crearArqueo(TurnoCaja $turno, string $tipo, ?array $denominaciones, ?float $totalContado, int $usuarioId, ?string $observaciones): ArqueoCaja
     {
         if ($denominaciones) {

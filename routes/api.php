@@ -78,6 +78,12 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function () {
     Route::get('/configuracion/negocio', [NegocioApiController::class, 'mostrar']);
     Route::post('/configuracion/negocio', [NegocioApiController::class, 'actualizar'])->middleware('permission:configuracion.gestionar');
 
+    // Qué imprime el ticket de cierre de turno: solo el administrador
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/configuracion/ticket-cierre', [NegocioApiController::class, 'ticketCierre']);
+        Route::put('/configuracion/ticket-cierre', [NegocioApiController::class, 'actualizarTicketCierre']);
+    });
+
     // Facturación electrónica (DTE Hacienda): incluye credenciales, solo quien gestiona la configuración
     Route::middleware('permission:configuracion.gestionar')->group(function () {
         Route::get('/configuracion/fel', [FelApiController::class, 'mostrar']);

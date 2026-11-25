@@ -646,63 +646,112 @@ class ImpresionService
                 ->columnas('Cerró', $turno->usuarioCierre?->nombre ?? '');
         }
 
-        $doc->separador()
-            ->columnas('Fondo inicial', $dinero($resumen['fondo_inicial']))
-            ->columnas('Ventas', $dinero($resumen['totales']['ventas']));
-        if ($resumen['totales']['devoluciones'] > 0) {
-            $doc->columnas('Devoluciones', '-' . $dinero($resumen['totales']['devoluciones']));
-        }
-        $doc->columnas('Ingresos', $dinero($resumen['totales']['ingresos']))
-            ->columnas('Egresos', '-' . $dinero($resumen['totales']['egresos']))
-            ->separador()->negrita()->linea('Por forma de pago')->normal();
+        $detalle = CajaService::detalleTurno($turno);
+        $cantidad = fn ($v, $u) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.') . ($u ? " {$u}" : '');
+        // Secciones que el administrador dejó encendidas (Configuración › Ticket de cierre)
+        $ver = $negocio->seccionesCierre();
 
-        foreach ($resumen['por_metodo'] as $m) {
-            $doc->columnas($m['nombre'], $dinero($m['neto']));
+        if ($ver['total_vendido']) {
+            $doc->separador()->negrita()
+                ->columnas('TOTAL VENDIDO', $dinero($resumen['totales']['ventas']))->normal()
+                ->columnas('Ventas realizadas', (string) $detalle['ventas_cantidad']);
         }
 
-        if ($resumen['ventas_por_usuario']) {
+        if ($ver['movimientos']) {
+            $doc->separador()
+                ->columnas('Fondo inicial', $dinero($resumen['fondo_inicial']))
+                ->columnas('Ventas', $dinero($resumen['totales']['ventas']));
+            if ($resumen['totales']['devoluciones'] > 0) {
+                $doc->columnas('Devoluciones', '-' . $dinero($resumen['totales']['devoluciones']));
+            }
+            $doc->columnas('Ingresos', $dinero($resumen['totales']['ingresos']))
+                ->columnas('Egresos', '-' . $dinero($resumen['totales']['egresos']));
+        }
+
+        if ($ver['por_metodo']) {
+            $doc->separador()->negrita()->linea('Por forma de pago')->normal();
+            foreach ($resumen['por_metodo'] as $m) {
+                $doc->columnas($m['nombre'], $dinero($m['neto']));
+            }
+        }
+
+        if ($ver['ventas_por_usuario'] && $resumen['ventas_por_usuario']) {
             $doc->separador()->negrita()->linea('Ventas por empleado')->normal();
             foreach ($resumen['ventas_por_usuario'] as $v) {
                 $doc->columnas("{$v['usuario']} ({$v['cantidad']})", $dinero($v['total']));
             }
         }
 
-        // Corte parcial con cierre ciego: quien imprime sin ver el historial de cierres no ve
-        // cuánto debería haber (igual que en pantalla); el cierre ya contado sí lo muestra
-        $doc->separador()->negrita();
-        if ($turno->estaAbierto() && CajaService::ocultarEsperado()) {
-            $doc->linea('Efectivo esperado: oculto (cierre ciego)');
-        } else {
-            $doc->columnas('Efectivo esperado', $dinero($turno->efectivo_esperado ?? $resumen['efectivo_esperado']));
+        // Cada salida de dinero con su concepto (ej. «Verdulería · tomates $12.00»)
+        $movimientos = function (string $titulo, array $lista) use ($doc, $dinero) {
+            if (!$lista) {
+                return;
+            }
+            $doc->separador()->negrita()->linea($titulo)->normal();
+            foreach ($lista as $m) {
+                $texto = trim(($m['hora'] ? "{$m['hora']} " : '') . $m['concepto'] . ($m['metodo'] ? " ({$m['metodo']})" : ''));
+                $monto = $dinero($m['monto']);
+                // El concepto largo se parte en renglones; el monto va en el último
+                $lineas = explode("\n", wordwrap($texto, max($doc->ancho() - mb_strlen($monto) - 1, 10), "\n", true));
+                $ultima = array_pop($lineas);
+                foreach ($lineas as $l) {
+                    $doc->linea($l);
+                }
+                $doc->columnas($ultima, $monto);
+            }
+            $doc->negrita()->columnas('Total', $dinero(array_sum(array_column($lista, 'monto'))))->normal();
+        };
+        if ($ver['gastos']) {
+            $movimientos('GASTOS Y SALIDAS', $detalle['salidas']);
         }
-        if ($turno->efectivo_contado !== null) {
-            $diferencia = (float) $turno->diferencia;
-            $doc->columnas('Efectivo contado', $dinero($turno->efectivo_contado))
-                ->columnas($diferencia < 0 ? 'FALTANTE' : ($diferencia > 0 ? 'SOBRANTE' : 'DIFERENCIA'), $dinero(abs($diferencia)));
-        }
-        $doc->normal();
-        if ($turno->efectivo_contado !== null) {
-            // El efectivo no se retira: lo contado es el fondo del siguiente turno
-            $doc->columnas('Queda para el sig. turno', $dinero($turno->efectivo_contado));
+        if ($ver['entradas']) {
+            $movimientos('OTRAS ENTRADAS', $detalle['entradas']);
         }
 
-        $conteo = $turno->arqueos->firstWhere('tipo', 'cierre')?->denominaciones;
-        if ($conteo) {
-            $doc->separador()->linea('Conteo');
-            krsort($conteo, SORT_NUMERIC);
-            foreach ($conteo as $valor => $cantidad) {
-                $doc->columnas("  {$cantidad} x " . $dinero($valor), $dinero((float) $valor * $cantidad));
+        if ($ver['productos'] && $detalle['productos']) {
+            $doc->separador()->negrita()->linea('PRODUCTOS VENDIDOS')->normal();
+            foreach ($detalle['productos'] as $p) {
+                $doc->columnas($cantidad($p['cantidad'], null) . ' x ' . $p['producto'], $dinero($p['total']));
             }
         }
 
-        if ($turno->observaciones_cierre) {
+        if ($ver['efectivo']) {
+            // Corte parcial con cierre ciego: quien imprime sin ver el historial de cierres no ve
+            // cuánto debería haber (igual que en pantalla); el cierre ya contado sí lo muestra
+            $doc->separador()->negrita();
+            if ($turno->estaAbierto() && CajaService::ocultarEsperado()) {
+                $doc->linea('Efectivo esperado: oculto (cierre ciego)');
+            } else {
+                $doc->columnas('Debe haber en caja', $dinero($turno->efectivo_esperado ?? $resumen['efectivo_esperado']));
+            }
+            if ($turno->efectivo_contado !== null) {
+                $diferencia = (float) $turno->diferencia;
+                $doc->columnas('Efectivo contado', $dinero($turno->efectivo_contado))
+                    ->columnas($diferencia < 0 ? 'FALTANTE' : ($diferencia > 0 ? 'SOBRANTE' : 'DIFERENCIA'), $dinero(abs($diferencia)));
+            }
+            $doc->normal();
+            if ($turno->efectivo_contado !== null) {
+                // El efectivo no se retira: lo contado es el fondo del siguiente turno
+                $doc->columnas('Queda para el sig. turno', $dinero($turno->efectivo_contado));
+            }
+        }
+
+        $conteo = $turno->arqueos->firstWhere('tipo', 'cierre')?->denominaciones;
+        if ($ver['conteo'] && $conteo) {
+            $doc->separador()->linea('Conteo');
+            krsort($conteo, SORT_NUMERIC);
+            foreach ($conteo as $valor => $piezas) {
+                $doc->columnas("  {$piezas} x " . $dinero($valor), $dinero((float) $valor * $piezas));
+            }
+        }
+
+        if ($ver['observaciones'] && $turno->observaciones_cierre) {
             $doc->separador()->parrafo("Obs.: {$turno->observaciones_cierre}");
         }
 
         // Lo que el siguiente turno tiene que comprar: solo lo que quedó en su mínimo o debajo.
-        // Se puede apagar en Datos del negocio (la lista sigue en pantalla y en Control de existencias).
-        if ($negocio->ticket_por_comprar) {
-            $cantidad = fn ($v, $u) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.') . ($u ? " {$u}" : '');
+        // Se apaga en Configuración › Ticket de cierre (la lista sigue en pantalla y en Control de existencias).
+        if ($ver['por_comprar']) {
             $doc->separador()->negrita()->linea('POR COMPRAR')->normal();
             if (!$resumen['por_comprar']) {
                 $doc->linea('Nada bajo el mínimo');
@@ -712,10 +761,14 @@ class ImpresionService
             }
         }
 
-        $mitad = intdiv($impresora->ancho_caracteres, 2) - 2;
-        $doc->avanzar(3)
-            ->linea(str_repeat('_', $mitad) . '    ' . str_repeat('_', $mitad))
-            ->linea(str_pad('Cajero', $mitad + 4) . 'Supervisor');
+        if ($ver['firmas']) {
+            $mitad = intdiv($impresora->ancho_caracteres, 2) - 2;
+            $doc->avanzar(3)
+                ->linea(str_repeat('_', $mitad) . '    ' . str_repeat('_', $mitad))
+                ->linea(str_pad('Cajero', $mitad + 4) . 'Supervisor');
+        } else {
+            $doc->avanzar(2);
+        }
 
         return $doc;
     }

@@ -456,7 +456,66 @@ class ImpresionTest extends TestCase
         $this->actuarComo('admin');
         $this->postJson("/api/impresion/turnos/{$this->turno->id}")->assertJsonPath('impreso', true);
         $this->assertStringNotContainsString('oculto', $this->transporte->texto(1));
-        $this->assertMatchesRegularExpression('/Efectivo esperado\s+\$20\.00/', $this->transporte->texto(1));
+        $this->assertMatchesRegularExpression('/Debe haber en caja\s+\$20\.00/', $this->transporte->texto(1));
+    }
+
+    public function test_cierre_trae_resumen_de_ventas_productos_y_gastos(): void
+    {
+        $this->impresora(['predeterminada' => true]);
+        $usuario = $this->actuarComo('admin');
+        $this->vender([['producto_id' => $this->pan->id, 'cantidad' => 10], ['producto_id' => $this->cafe->id, 'cantidad' => 2]], 'Efectivo', 5);
+        CajaService::registrarMovimiento($this->turno, 'egreso', 3.75, 'Verdulería: tomates y cebolla', $usuario->id);
+        CajaService::registrarMovimiento($this->turno, 'ingreso', 2, 'Cambio que trajo el dueño', $usuario->id);
+        CajaService::cerrar($this->turno, null, 22.25, $usuario->id);
+
+        $this->postJson("/api/impresion/turnos/{$this->turno->id}")->assertJsonPath('impreso', true);
+
+        $texto = $this->transporte->texto();
+        $this->assertMatchesRegularExpression('/TOTAL VENDIDO\s+\$4\.00/', $texto);
+        $this->assertMatchesRegularExpression('/Ventas realizadas\s+1/', $texto);
+        $this->assertStringContainsString('GASTOS Y SALIDAS', $texto);
+        $this->assertMatchesRegularExpression('/Verdulería: tomates y cebolla\s+\$3\.75/', $texto);
+        $this->assertStringContainsString('OTRAS ENTRADAS', $texto);
+        $this->assertStringContainsString('Cambio que trajo el dueño', $texto);
+        $this->assertMatchesRegularExpression('/10 x Pan francés\s+\$1\.50/', $texto);
+        $this->assertMatchesRegularExpression('/2 x Café con leche\s+\$2\.50/', $texto);
+        $this->assertMatchesRegularExpression('/Debe haber en caja\s+\$22\.25/', $texto);
+    }
+
+    public function test_solo_el_admin_configura_el_ticket_de_cierre(): void
+    {
+        $this->actuarComo('cajero');
+        $this->getJson('/api/configuracion/ticket-cierre')->assertForbidden();
+        $this->putJson('/api/configuracion/ticket-cierre', ['productos' => false])->assertForbidden();
+
+        $this->actuarComo('admin');
+        $this->getJson('/api/configuracion/ticket-cierre')->assertOk()
+            ->assertJsonPath('data.productos', true)->assertJsonPath('data.por_comprar', true);
+        $this->putJson('/api/configuracion/ticket-cierre', ['productos' => false, 'por_comprar' => false])->assertOk()
+            ->assertJsonPath('data.productos', false)->assertJsonPath('data.gastos', true)->assertJsonPath('data.por_comprar', false);
+    }
+
+    public function test_el_ticket_de_cierre_omite_las_secciones_apagadas(): void
+    {
+        $this->impresora(['predeterminada' => true]);
+        $usuario = $this->actuarComo('admin');
+        $this->vender([['producto_id' => $this->pan->id, 'cantidad' => 10]], 'Efectivo', 5);
+        CajaService::registrarMovimiento($this->turno, 'egreso', 3, 'Verdulería', $usuario->id);
+        CajaService::cerrar($this->turno, ['10' => 1, '5' => 1, '1' => 3], null, $usuario->id);
+
+        $this->putJson('/api/configuracion/ticket-cierre', [
+            'productos' => false, 'gastos' => false, 'conteo' => false, 'firmas' => false, 'por_comprar' => false,
+        ])->assertOk();
+        $this->postJson("/api/impresion/turnos/{$this->turno->id}")->assertJsonPath('impreso', true);
+
+        $texto = $this->transporte->texto();
+        $this->assertStringContainsString('TOTAL VENDIDO', $texto);
+        $this->assertStringContainsString('Debe haber en caja', $texto);
+        $this->assertStringNotContainsString('PRODUCTOS VENDIDOS', $texto);
+        $this->assertStringNotContainsString('GASTOS Y SALIDAS', $texto);
+        $this->assertStringNotContainsString('Conteo', $texto);
+        $this->assertStringNotContainsString('Supervisor', $texto);
+        $this->assertStringNotContainsString('POR COMPRAR', $texto);
     }
 
     public function test_boton_de_prueba_muestra_el_error_de_conexion(): void

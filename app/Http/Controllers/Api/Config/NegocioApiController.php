@@ -21,6 +21,42 @@ class NegocioApiController extends Controller
         ]);
     }
 
+    // GET /configuracion/ticket-cierre (solo admin): qué imprime el ticket de cierre de turno
+    public function ticketCierre()
+    {
+        return response()->json([
+            'success'   => 1,
+            'data'      => ConfiguracionNegocio::actual()->seccionesCierre(),
+            'secciones' => ConfiguracionNegocio::SECCIONES_CIERRE + ['por_comprar' => 'Por comprar (productos en su mínimo o debajo)'],
+        ]);
+    }
+
+    // PUT /configuracion/ticket-cierre (solo admin)
+    public function actualizarTicketCierre(Request $request)
+    {
+        $claves = array_keys(ConfiguracionNegocio::SECCIONES_CIERRE);
+        $datos = $request->validate(
+            collect($claves)->push('por_comprar')->mapWithKeys(fn ($c) => [$c => 'sometimes|boolean'])->all()
+        );
+
+        $config = ConfiguracionNegocio::actual();
+        $antes  = $config->toArray();
+        $secciones = $config->seccionesCierre();
+
+        $config->update([
+            'ticket_cierre'      => collect($claves)->mapWithKeys(fn ($c) => [$c => (bool) ($datos[$c] ?? $secciones[$c])])->all(),
+            'ticket_por_comprar' => (bool) ($datos['por_comprar'] ?? $secciones['por_comprar']),
+        ]);
+
+        AuditoriaService::registrar('configuracion', 'ticket_cierre', $config, $antes, $config->fresh()->toArray());
+
+        return response()->json([
+            'success' => 1,
+            'message' => 'Ticket de cierre guardado',
+            'data'    => $config->fresh()->seccionesCierre(),
+        ]);
+    }
+
     // POST /configuracion/negocio (multipart, por el logo)
     public function actualizar(Request $request)
     {
