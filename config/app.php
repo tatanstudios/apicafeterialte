@@ -28,6 +28,10 @@ return [
 
     'env' => env('APP_ENV', 'production'),
 
+    // TEMPORAL (pruebas): habilita el botón «Borrar Ventas» fuera del entorno local.
+    // Quitar (o dejar en false) cuando el negocio empiece a vender de verdad.
+    'permitir_borrar_ventas' => (bool) env('PERMITIR_BORRAR_VENTAS', false),
+
     /*
     |--------------------------------------------------------------------------
     | Application Debug Mode
