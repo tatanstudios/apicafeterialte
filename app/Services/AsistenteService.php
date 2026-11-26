@@ -158,6 +158,24 @@ class AsistenteService
             [
                 'type'        => 'function',
                 'strict'      => false,
+                'name'        => 'existencias',
+                'description' => 'Existencia actual de productos e insumos activos que llevan inventario, filtrando por cantidad '
+                    . '(por ejemplo "3 o menos" = maximo 3, "sin existencia" = maximo 0), por clase o por nombre. '
+                    . 'Ordenado de menor a mayor existencia; incluye el mínimo configurado y la unidad.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'maximo' => ['type' => 'number', 'description' => 'Existencia menor o igual a este número'],
+                        'minimo' => ['type' => 'number', 'description' => 'Existencia mayor o igual a este número'],
+                        'clase'  => ['type' => 'string', 'enum' => ['producto_terminado', 'materia_prima', 'reventa', 'empaque'],
+                            'description' => 'Solo si el usuario pide un tipo; omítelo para ver todo'],
+                        'nombre' => ['type' => 'string', 'description' => 'Parte del nombre, solo si el usuario lo pide'],
+                    ],
+                ],
+            ],
+            [
+                'type'        => 'function',
+                'strict'      => false,
                 'name'        => 'comparar_periodos',
                 'description' => 'Compara dos periodos en una sola llamada: venta neta, tickets, ticket promedio, utilidad bruta, '
                     . 'mermas, gastos, consumo interno y resultado, con la diferencia y el % de cambio. A es el periodo actual y B el anterior.',
@@ -252,6 +270,7 @@ class AsistenteService
                 'reporte'               => self::reporte($args),
                 'resumen_hoy'           => ReportesService::panel(true),
                 'productos_bajo_minimo' => self::bajoMinimo(),
+                'existencias'           => self::existencias($args),
                 'buscar_producto'       => self::buscarProducto((string) ($args['nombre'] ?? '')),
                 'comparar_periodos'     => self::compararPeriodos($args),
                 'ventas_de_producto'    => self::ventasDeProducto($args),
@@ -290,6 +309,41 @@ class AsistenteService
         }
 
         return $reporte;
+    }
+
+    private static function existencias(array $args): array
+    {
+        $numero = fn ($v) => is_numeric($v) ? (float) $v : null;
+        $maximo = $numero($args['maximo'] ?? null);
+        $minimo = $numero($args['minimo'] ?? null);
+        $clase = in_array($args['clase'] ?? null, ['producto_terminado', 'materia_prima', 'reventa', 'empaque'], true) ? $args['clase'] : null;
+        $nombre = trim((string) ($args['nombre'] ?? ''));
+
+        $consulta = DB::table('productos as p')
+            ->leftJoin('inventario as i', 'i.producto_id', '=', 'p.id')
+            ->leftJoin('unidades_medida as u', 'u.id', '=', 'p.unidad_medida_id')
+            ->where('p.activo', true)->where('p.controla_stock', true)
+            ->when($maximo !== null, fn ($q) => $q->whereRaw('COALESCE(i.stock_actual, 0) <= ?', [$maximo]))
+            ->when($minimo !== null, fn ($q) => $q->whereRaw('COALESCE(i.stock_actual, 0) >= ?', [$minimo]))
+            ->when($clase, fn ($q) => $q->where('p.clase', $clase))
+            ->when($nombre !== '', fn ($q) => $q->where('p.nombre', 'like', "%{$nombre}%"));
+
+        $total = (clone $consulta)->count();
+        $filas = $consulta->orderByRaw('COALESCE(i.stock_actual, 0)')->orderBy('p.nombre')->limit(150)
+            ->get(['p.nombre', 'p.clase', 'u.abreviatura as unidad', 'i.stock_actual', 'i.stock_minimo'])
+            ->map(fn ($r) => [
+                'producto'  => $r->nombre,
+                'clase'     => $r->clase,
+                'existencia' => round((float) $r->stock_actual, 3),
+                'unidad'    => $r->unidad,
+                'minimo'    => round((float) $r->stock_minimo, 3),
+            ])->all();
+
+        return [
+            'total'     => $total,
+            'productos' => $filas,
+            'nota'      => $total > 150 ? "Se muestran 150 de {$total}; pide un filtro más específico." : null,
+        ];
     }
 
     private static function bajoMinimo(): array
