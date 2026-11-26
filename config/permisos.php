@@ -84,6 +84,9 @@ return [
         'reportes.ver'              => 'Ver reportes',
         'reportes.exportar'         => 'Exportar reportes a Excel y PDF',
 
+        // Asistente
+        'asistente.usar'            => 'Hacer preguntas al asistente (IA) sobre ventas, utilidad, mermas y gastos',
+
         // Historiales
         'historial.ver_todo'        => 'Ver en los historiales lo que registraron todos los usuarios',
 
@@ -119,6 +122,7 @@ return [
         'impresoras'     => 'Impresoras',
         'historial'      => 'Historiales',
         'reportes'       => 'Reportes',
+        'asistente'      => 'Asistente (IA)',
         'usuarios'       => 'Usuarios',
         'roles'          => 'Roles y permisos',
         'auditoria'      => 'Auditoría',
@@ -209,6 +213,7 @@ return [
         'reportes.ver' => 'Entra a Reportes: ventas por día, hora, empleado y forma de pago, productos más vendidos, utilidad estimada, cierres de caja, compras, gastos, inventario valorizado, kárdex, producción, mermas y cuentas por cobrar y por pagar. Con este permiso el panel de inicio muestra también la utilidad y el resumen del mes.',
         'historial.ver_todo' => 'En los historiales por fecha (ventas, compras, gastos y producción) ve lo que registraron todos los usuarios. Sin este permiso cada quien ve solo lo que registró él mismo; los totales también son solo de lo suyo.',
         'reportes.exportar' => 'Descarga los reportes en Excel y PDF. Cada descarga queda en Auditoría.',
+        'asistente.usar' => 'Abre el Asistente (web y tablet) para preguntar en lenguaje normal sobre ventas, utilidad, mermas, gastos, compras, cierres de caja, inventario y cartera. La IA solo lee los mismos reportes del sistema (no puede cambiar nada) y ve costos y utilidad, por eso conviene darlo solo al dueño. Cada pregunta queda en Auditoría y gasta saldo de OpenAI.',
 
         'usuarios.gestionar' => 'Crea, edita y desactiva usuarios, les asigna su rol y les quita el PIN. Un usuario desactivado ya no puede entrar y se cierran sus sesiones abiertas.',
         'roles.gestionar' => 'Cambia qué puede hacer cada rol (esta pantalla) y qué manuales ve cada rol. El cambio aplica de inmediato y queda en Auditoría. Es un permiso delicado: quien lo tiene puede darse cualquier otro permiso.',

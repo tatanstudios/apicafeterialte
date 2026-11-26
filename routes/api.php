@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Manuales\ManualApiController;
+use App\Http\Controllers\Api\Asistente\AsistenteApiController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Login\LoginApiController;
@@ -404,6 +405,11 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function () {
         Route::put('/mesas/config/productos/{id}/modificadores', [ConfigMesasApiController::class, 'guardarModificadoresProducto'])->whereNumber('id');
         Route::delete('/mesas/config/productos/{id}/modificadores', [ConfigMesasApiController::class, 'quitarModificadoresProducto'])->whereNumber('id');
     });
+
+    // ── ASISTENTE (OpenAI, solo lectura por herramientas) ─────
+    Route::post('/asistente/chat', [AsistenteApiController::class, 'chat'])
+        ->middleware(['permission:asistente.usar', 'throttle:20,1']);
+    Route::get('/asistente/sin-respuesta', [AsistenteApiController::class, 'sinRespuesta'])->middleware('permission:asistente.usar');
 
     // ── REPORTES Y PANEL ──────────────────────────────────────
     Route::get('/panel', [ReporteApiController::class, 'panel'])->middleware('permission:dashboard.ver|reportes.ver');
