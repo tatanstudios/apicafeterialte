@@ -40,11 +40,19 @@ class AsistenteApiController extends Controller
         return response()->json(['success' => 1, ...$resultado]);
     }
 
-    // GET /asistente/sin-respuesta: preguntas que el asistente no pudo contestar (las más recientes primero)
+    /** Ids de las preguntas sin respuesta ya marcadas como resueltas (cada marca es otra entrada de Auditoría). */
+    private function resueltas(): array
+    {
+        return Auditoria::query()->where('modulo', 'asistente')->where('accion', 'sin_respuesta_resuelta')
+            ->pluck('datos_despues')->map(fn ($d) => (int) ($d['auditoria_id'] ?? 0))->filter()->all();
+    }
+
+    // GET /asistente/sin-respuesta: preguntas que el asistente no pudo contestar y siguen pendientes
     public function sinRespuesta()
     {
         $filas = Auditoria::query()->with('usuario:id,nombre')
             ->where('modulo', 'asistente')->where('accion', 'sin_respuesta')
+            ->whereNotIn('id', $this->resueltas())
             ->latest('id')->limit(200)->get()
             ->map(fn ($a) => [
                 'id'       => $a->id,
@@ -55,5 +63,19 @@ class AsistenteApiController extends Controller
             ]);
 
         return response()->json(['success' => 1, 'preguntas' => $filas]);
+    }
+
+    // POST /asistente/sin-respuesta/{id}/resolver: la quita de pendientes; el registro original no se toca
+    public function resolver(int $id)
+    {
+        $pregunta = Auditoria::query()->where('modulo', 'asistente')->where('accion', 'sin_respuesta')->findOrFail($id);
+
+        if (!in_array($pregunta->id, $this->resueltas(), true)) {
+            AuditoriaService::registrar('asistente', 'sin_respuesta_resuelta', null, null,
+                ['auditoria_id' => $pregunta->id, 'pregunta' => $pregunta->datos_despues['pregunta'] ?? ''],
+                'Pregunta sin respuesta marcada como resuelta: ' . ($pregunta->datos_despues['pregunta'] ?? ''));
+        }
+
+        return response()->json(['success' => 1, 'message' => 'Marcada como resuelta']);
     }
 }

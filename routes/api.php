@@ -410,6 +410,8 @@ Route::middleware(['auth:sanctum', 'usuario.activo'])->group(function () {
     Route::post('/asistente/chat', [AsistenteApiController::class, 'chat'])
         ->middleware(['permission:asistente.usar', 'throttle:20,1']);
     Route::get('/asistente/sin-respuesta', [AsistenteApiController::class, 'sinRespuesta'])->middleware('permission:asistente.usar');
+    Route::post('/asistente/sin-respuesta/{id}/resolver', [AsistenteApiController::class, 'resolver'])
+        ->whereNumber('id')->middleware('permission:asistente.usar');
 
     // ── REPORTES Y PANEL ──────────────────────────────────────
     Route::get('/panel', [ReporteApiController::class, 'panel'])->middleware('permission:dashboard.ver|reportes.ver');
